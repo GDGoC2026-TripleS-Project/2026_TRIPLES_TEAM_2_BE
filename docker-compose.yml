@@ -42,9 +42,6 @@ services:
       - spring_mysql_api
 
   spring_app:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: ${ECR_REGISTRY}fabackend:latest
     container_name: spring_app
     env_file:
