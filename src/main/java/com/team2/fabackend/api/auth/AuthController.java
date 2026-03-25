@@ -41,19 +41,19 @@ import java.util.concurrent.TimeUnit;
     
     ---
     
-    ### 🔑 주요 특징
-    - **인증 방식**: Bearer JWT 토큰을 사용하며, Access Token은 헤더로, Refresh Token은 바디로 관리합니다.
-    - **이메일 인증**: 모든 가입 및 비밀번호 찾기 시나리오에 이메일 기반 OTP 인증이 포함됩니다.
+    ### 🔑 안드로이드 구현 가이드
+    - **인증 토큰**: Bearer JWT를 사용하며, 발급된 Access Token은 모든 요청의 `Authorization` 헤더(Bearer Prefix 포함)에 담아야 합니다.
+    - **토큰 저장**: 보안을 위해 Refresh Token은 `EncryptedSharedPreferences` 또는 `Jetpack DataStore`에 저장하는 것을 권장합니다.
+    - **이메일 인증**: 모든 가입 및 비밀번호 찾기 과정에서 OTP 인증이 필수적입니다.
     
-    ### 🧩 Flutter / Retrofit 예시
-    ```dart
-    @RestApi(baseUrl: "https://api.com/auth")
-    abstract class AuthApi {
-      @POST("/login")
-      Future<HttpResponse<LoginResponse>> login(@Body LoginRequest request);
+    ### 🧩 Kotlin / Retrofit 예시
+    ```kotlin
+    interface AuthApi {
+      @POST("/auth/login")
+      suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
       
-      @POST("/refresh")
-      Future<HttpResponse<LoginResponse>> refresh(@Body RefreshRequest request);
+      @POST("/auth/refresh")
+      suspend fun refresh(@Body request: RefreshRequest): Response<LoginResponse>
     }
     ```
     """
@@ -72,11 +72,11 @@ public class AuthController {
     @PostMapping("/signup")
     @Operation(
             summary = "신규 회원가입",
-            description = "이메일, 비밀번호, 닉네임 등을 이용해 가입합니다. 호출 전 반드시 이메일 인증(/auth/email/verify)이 완료되어야 합니다."
+            description = "이메일, 비밀번호, 닉네임 등으로 가입합니다. 이메일 인증(/auth/email/verify)이 먼저 완료되어야 가입 처리가 가능합니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "회원가입 성공"),
-            @ApiResponse(responseCode = "400", description = "입력값 유효성 검증 실패"),
+            @ApiResponse(responseCode = "200", description = "회원가입 성공 (로그인 화면으로 이동 권장)"),
+            @ApiResponse(responseCode = "400", description = "입력값 유효성 검증 실패 (이메일 형식, 비밀번호 규칙 등)"),
             @ApiResponse(responseCode = "403", description = "이메일 인증 미완료"),
             @ApiResponse(responseCode = "409", description = "이미 가입된 이메일")
     })
@@ -95,13 +95,13 @@ public class AuthController {
     @GetMapping("/check-email")
     @Operation(
             summary = "이메일 중복 확인",
-            description = "입력한 이메일이 사용 가능한지 확인합니다. 회원가입 폼에서 포커스를 잃을 때 실시간으로 호출하기 좋습니다."
+            description = "사용자가 입력한 이메일의 사용 가능 여부를 실시간으로 체크할 때 사용합니다. EditText 포커스 아웃 시 호출하면 좋습니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "사용 가능한 이메일"),
+            @ApiResponse(responseCode = "200", description = "사용 가능"),
             @ApiResponse(responseCode = "409", description = "이미 사용 중인 이메일")
     })
-    public ResponseEntity<Void> checkEmail(@RequestParam @Parameter(description = "중복 확인할 이메일", example = "user@example.com") String email) {
+    public ResponseEntity<Void> checkEmail(@RequestParam @Parameter(description = "확인할 이메일", example = "user@example.com") String email) {
         authService.checkEmailDuplication(email);
 
         return ResponseEntity.ok()
@@ -119,11 +119,11 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(
             summary = "로그인 (토큰 발급)",
-            description = "성공 시 Access Token은 'Authorization' 헤더(Bearer)로, Refresh Token은 Body로 전달됩니다."
+            description = "로그인 성공 시 Access Token은 **Authorization 헤더(Bearer)**로, Refresh Token은 **Body**로 전달됩니다. 두 토큰 모두 앱 내부 저장소에 저장하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그인 성공"),
-            @ApiResponse(responseCode = "401", description = "ID/PW 불일치")
+            @ApiResponse(responseCode = "401", description = "아이디 또는 비밀번호 오류")
     })
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
         TokenPair tokens = authService.login(request);
@@ -142,11 +142,11 @@ public class AuthController {
     @PostMapping("/refresh")
     @Operation(
             summary = "토큰 갱신 (Refresh)",
-            description = "Access Token이 만료된 경우 호출합니다. 새로운 Access Token은 헤더로, Refresh Token은 Body로 반환됩니다."
+            description = "Access Token이 만료되어 HTTP 401이 반환될 경우 호출합니다. **Retrofit Authenticator** 등을 활용해 자동으로 처리하는 것이 좋습니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "재발급 성공"),
-            @ApiResponse(responseCode = "401", description = "Refresh Token 만료 또는 유효하지 않음")
+            @ApiResponse(responseCode = "200", description = "갱신 성공"),
+            @ApiResponse(responseCode = "401", description = "Refresh Token 만료 (다시 로그인 필요)")
     })
     public ResponseEntity<LoginResponse> refresh(@RequestBody @Valid RefreshRequest request) {
         TokenPair tokenPair = authService.refreshAccessToken(request.getRefreshToken());
@@ -164,11 +164,11 @@ public class AuthController {
     @PostMapping("/logout")
     @Operation(
             summary = "로그아웃",
-            description = "서버 측 Refresh Token을 무효화합니다. 앱 내 저장된 모든 토큰을 삭제하고 로그인 화면으로 이동하세요."
+            description = "서버의 Refresh Token을 무효화합니다. 성공 시 앱 내 저장된 모든 토큰 정보를 삭제하고 로그인 화면으로 전환하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "로그아웃 성공"),
-            @ApiResponse(responseCode = "401", description = "인증 실패")
+            @ApiResponse(responseCode = "401", description = "토큰 만료 또는 유효하지 않음")
     })
     public ResponseEntity<Void> logout(@RequestParam @Parameter(description = "유저 ID", example = "1") Long userId) {
         authService.logout(userId);

@@ -39,15 +39,23 @@ public class SwaggerConfig {
 
         return new OpenAPI()
                 .info(new Info()
-                        .title("Toktory API")
+                        .title("Toktory API for Android")
                         .description("""
-                                <h2>백엔드 API Swagger</h2>
-                                <h4>인증 방법</h4>
+                                <h2>🚀 Toktory 백엔드 API 명세서 (Android 전용)</h2>
+                                <p>이 문서는 안드로이드 개발자를 위해 최적화된 API 가이드를 제공합니다.</p>
+                                
+                                <h3>🔑 인증 및 보안 가이드</h3>
                                 <ol>
-                                    <li>로그인 → <b>accessToken</b> 복사</li>
-                                    <li><b>Authorize</b> 버튼 클릭 → <b>JWT</b> 항목에 토큰 붙여넣기</li>
-                                    <li>비밀번호 변경 등 2차 인증 필요 시 <b>Confirm Token</b> 항목 사용</li>
+                                    <li><b>Access Token (JWT)</b>: 로그인 성공 시 발급되며, 모든 API 요청 시 <code>Authorization: Bearer {token}</code> 헤더에 포함해야 합니다.</li>
+                                    <li><b>Refresh Token</b>: Access Token 만료 시 <code>/auth/refresh</code>를 통해 갱신하며, 보안을 위해 <b>EncryptedSharedPreferences</b> 또는 <b>DataStore</b>에 저장하는 것을 권장합니다.</li>
+                                    <li><b>Confirm Token</b>: 비밀번호 변경, 회원 탈퇴 등 민감한 작업 시 2차 검증 후 발급되는 짧은 수명의 토큰입니다. <code>X-Password-Confirm-Token</code> 헤더에 포함하세요.</li>
                                 </ol>
+                                
+                                <h3>🛠️ 개발 참고사항</h3>
+                                <ul>
+                                    <li><b>Retrofit2</b> 사용 시 <code>Response<Unit></code> 또는 <code>Deferred<Response<T>></code> 형식을 권장합니다.</li>
+                                    <li>에러 발생 시 <code>ErrorResponse</code> 객체가 반환되므로 공통 에러 핸들러를 구성하세요.</li>
+                                </ul>
                                 """)
                         .version("v1.0.0"))
                 .servers(List.of(
