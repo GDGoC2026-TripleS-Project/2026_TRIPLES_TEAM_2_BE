@@ -30,16 +30,15 @@ import org.springframework.web.bind.annotation.RestController;
     
     ---
     
-    ### 🔑 주요 특징
-    - **이메일 전송**: 분석 결과는 PDF/HTML 형식으로 지정된 이메일로 발송됩니다.
-    - **비동기 처리**: 메일 발송 요청만 즉시 응답하며, 실제 발송은 서버 백그라운드에서 처리됩니다.
+    ### 🔑 안드로이드 구현 가이드
+    - **비동기 처리**: 서버에서 메일 발송은 백그라운드로 처리되므로, 클라이언트는 성공 응답 수신 후 "리포트 발송 중" 안내 메시지를 표시하면 됩니다.
+    - **입력 유효성**: 이메일 주소 형식 검증은 앱 프런트엔드에서 먼저 수행하는 것을 권장합니다.
     
-    ### 🧩 Flutter / Retrofit 예시
-    ```dart
-    @RestApi(baseUrl: "https://api.com/report")
-    abstract class AiReportApi {
-      @POST("/send")
-      Future<AiReportResponse> sendAiReport(@Body AiReportRequest request);
+    ### 🧩 Kotlin / Retrofit 예시
+    ```kotlin
+    interface AiReportApi {
+      @POST("/report/send")
+      suspend fun sendAiReport(@Body request: AiReportRequest): Response<AiReportResponse>
     }
     ```
     """
@@ -57,12 +56,12 @@ public class AiReportController {
      */
     @Operation(
             summary = "AI 리포트 이메일 발송",
-            description = "이번 달 소비 분석 리포트를 사용자가 입력한 이메일 주소로 전송합니다. 설정 화면이나 리포트 탭에서 사용하세요."
+            description = "사용자의 소비 분석 결과가 담긴 PDF 리포트를 입력한 이메일로 전송합니다. 로딩 애니메이션과 함께 사용하세요."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "발송 요청 성공"),
-            @ApiResponse(responseCode = "400", description = "유효하지 않은 이메일 주소"),
-            @ApiResponse(responseCode = "401", description = "인증 실패 (토큰 만료)")
+            @ApiResponse(responseCode = "200", description = "발송 요청 성공 (메일함 확인 유도)"),
+            @ApiResponse(responseCode = "400", description = "잘못된 이메일 형식"),
+            @ApiResponse(responseCode = "401", description = "인증 실패 (AccessToken 만료)")
     })
     @PostMapping("/send")
     public ResponseEntity<AiReportResponse> sendAiReport(

@@ -33,19 +33,18 @@ import java.util.Map;
     
     ---
     
-    ### 🔑 주요 특징
-    - **가계부 연동**: 가계부에 기록된 '저축' 내역이 목표 달성률에 실시간 반영됩니다.
-    - **AI 분석**: 현재 소비 속도로 목표일 내 달성 가능한지를 분석합니다.
+    ### 🔑 안드로이드 구현 가이드
+    - **실시간 갱신**: 가계부(`Ledger`) 추가 시 목표 달성률이 서버에서 자동 계산됩니다. 추가 후 목표 목록 화면을 `invalidate`하여 최신 데이터를 반영하세요.
+    - **AI 분석 UI**: 분석 결과의 `advice` 메시지를 다이얼로그나 바텀 시트로 띄워 사용자에게 동기부여를 제공할 수 있습니다.
     
-    ### 🧩 Flutter / Retrofit 예시
-    ```dart
-    @RestApi(baseUrl: "https://api.com/api/goals")
-    abstract class GoalApi {
-      @POST("")
-      Future<int> createGoal(@Body GoalRequest request, @Query("userId") int userId);
+    ### 🧩 Kotlin / Retrofit 예시
+    ```kotlin
+    interface GoalApi {
+      @POST("/api/goals")
+      suspend fun createGoal(@Body request: GoalRequest, @Query("userId") userId: Long): Response<Long>
       
-      @GET("/{id}/analysis")
-      Future<GoalAnalysisResponse> analyzeGoal(@Path("id") int goalId);
+      @GET("/api/goals/{id}/analysis")
+      suspend fun analyzeGoal(@Path("id") goalId: Int): Response<GoalAnalysisResponse>
     }
     ```
     """
@@ -63,11 +62,11 @@ public class GoalController {
     @PostMapping
     @Operation(
             summary = "저축 목표 생성",
-            description = "새로운 저축 목표를 생성합니다. 생성된 목표의 고유 ID가 반환됩니다."
+            description = "새로운 저축 목표를 생성합니다. 성공 시 목표의 고유 ID(Long)가 반환됩니다."
     )
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "생성 성공 (ID 반환)"),
-            @ApiResponse(responseCode = "404", description = "유저 정보를 찾을 수 없음")
+            @ApiResponse(responseCode = "200", description = "생성 성공"),
+            @ApiResponse(responseCode = "404", description = "유저 정보 없음")
     })
     public ResponseEntity<Long> create(@RequestBody GoalRequest request, @RequestParam @Parameter(description = "유저 ID", example = "1") Long userId) {
         Long goalId = goalService.createGoal(request, userId);
@@ -82,7 +81,7 @@ public class GoalController {
     @GetMapping("/list")
     @Operation(
             summary = "전체 목표 목록 조회",
-            description = "과거에 종료된 목표를 포함하여 사용자의 모든 저축 목표 리스트를 조회합니다."
+            description = "사용자가 과거에 달성했거나 현재 진행 중인 모든 저축 목표 리스트를 가져옵니다. `RecyclerView` 구현 시 활용하세요."
     )
     public ResponseEntity<Map<String, Object>> getGoalList() {
         List<GoalResponse> data = goalService.findAllGoals();
@@ -103,7 +102,7 @@ public class GoalController {
     @GetMapping("/active/{userId}")
     @Operation(
             summary = "진행 중인 목표 조회",
-            description = "현재 종료일이 지나지 않은 활성화된 저축 목표들만 필터링하여 조회합니다."
+            description = "현재 마감일이 지나지 않은 활성화된 목표들만 필터링하여 조회합니다. 홈 화면의 목표 위젯에서 사용하세요."
     )
     public ResponseEntity<Map<String, Object>> getActiveGoals(@PathVariable @Parameter(description = "유저 ID", example = "1") Long userId) {
         List<GoalResponse> data = goalService.findActiveGoals(userId);
@@ -125,11 +124,11 @@ public class GoalController {
     @PatchMapping("/{id}")
     @Operation(
             summary = "목표 정보 수정",
-            description = "목표 금액, 마감일, 제목 등 기존 목표의 상세 정보를 수정합니다."
+            description = "목표 금액, 마감일, 제목 등을 수정합니다. 편집 완료 후 목록 화면 갱신이 필요합니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "수정 완료"),
-            @ApiResponse(responseCode = "404", description = "해당 목표를 찾을 수 없음")
+            @ApiResponse(responseCode = "404", description = "목표 정보 없음")
     })
     public ResponseEntity<Void> update(@PathVariable @Parameter(description = "목표 ID", example = "10") Long id, @RequestBody GoalRequest request) {
         goalService.updateGoal(id, request);
@@ -145,7 +144,7 @@ public class GoalController {
     @DeleteMapping("/{id}")
     @Operation(
             summary = "목표 삭제",
-            description = "저축 목표를 삭제합니다. 연동된 가계부 데이터는 삭제되지 않으나 달성도 계산에서 제외됩니다."
+            description = "목표를 삭제합니다. 연동된 가계부 데이터는 유지되나, 달성 통계에는 더 이상 포함되지 않습니다."
     )
     public ResponseEntity<Void> delete(@PathVariable @Parameter(description = "목표 ID", example = "10") Long id) {
         goalService.deleteGoal(id);
@@ -161,11 +160,11 @@ public class GoalController {
     @GetMapping("/{id}/analysis")
     @Operation(
             summary = "목표 AI 달성 분석",
-            description = "해당 목표의 현재 달성 속도를 분석하여 예상 성공률과 조언 메시지를 제공합니다."
+            description = "AI가 현재 소비 속도를 바탕으로 목표 달성 성공률과 피드백을 제공합니다. 목표 상세 화면에서 사용하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "분석 완료"),
-            @ApiResponse(responseCode = "404", description = "해당 목표를 찾을 수 없음")
+            @ApiResponse(responseCode = "404", description = "목표 정보 없음")
     })
     public ResponseEntity<GoalAnalysisResponse> analyze(@PathVariable @Parameter(description = "목표 ID", example = "10") Long id) {
         GoalAnalysisResponse analysis = goalService.analyzeGoal(id);

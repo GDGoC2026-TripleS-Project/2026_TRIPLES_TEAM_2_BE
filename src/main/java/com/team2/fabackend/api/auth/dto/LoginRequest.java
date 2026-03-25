@@ -7,13 +7,13 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-@Schema(description = "로그인 요청 정보")
+@Schema(description = "로그인 요청 데이터 모델 (Android ViewModel에서 수집하여 서버로 전송 시 사용)")
 public class LoginRequest {
-    @Schema(description = "사용자 이메일 계정", example = "user@example.com", nullable = false)
+    @Schema(description = "사용자 이메일 (아이디)", example = "android@toktory.com", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank
     private String email;
 
-    @Schema(description = "사용자 비밀번호", example = "password123!", nullable = false)
+    @Schema(description = "비밀번호 (EditText 입력값)", example = "password123!", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank
     private String password;
 }

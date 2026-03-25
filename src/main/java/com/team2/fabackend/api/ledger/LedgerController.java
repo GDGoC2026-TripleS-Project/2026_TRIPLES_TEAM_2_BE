@@ -29,23 +29,23 @@ import java.util.stream.Collectors;
         description = """
     ## 📑 가계부(Ledger) API
     
-    사용자의 지출 및 수입 내역을 기록하고 목표 달성액에 반영합니다.
+    사용자의 지출 및 수입 내역을 기록하고 관리합니다.
     
     ---
     
-    ### 🔑 주요 특징
-    - **목표 자동 연동**: '저축' 카테고리로 지출을 기록하면 활성 목표 금액에 자동 합산됩니다.
-    - **실시간 갱신**: 내역 수정 또는 삭제 시 연동된 목표 데이터도 즉시 재계산됩니다.
+    ### 🔑 안드로이드 구현 가이드
+    - **입력 폼**: '저축' 카테고리 선택 시 현재 진행 중인 목표에 금액이 합산되므로, 사용자에게 이를 알리는 UI 피드백을 주면 좋습니다.
+    - **리스트 갱신**: 내역 추가/수정/삭제 후에는 가계부 메인 리스트와 대시보드(예산 현황)를 모두 새로고침해야 합니다.
+    - **날짜 형식**: 날짜 데이터 전송 시 서버 규격(ISO_LOCAL_DATE 등)을 확인하여 포맷팅하세요.
     
-    ### 🧩 Flutter / Retrofit 예시
-    ```dart
-    @RestApi(baseUrl: "https://api.com/api/ledger")
-    abstract class LedgerApi {
-      @POST("/add")
-      Future<void> addLedger(@Body LedgerRequest request);
+    ### 🧩 Kotlin / Retrofit 예시
+    ```kotlin
+    interface LedgerApi {
+      @POST("/api/ledger/add")
+      suspend fun addLedger(@Body request: LedgerRequest): Response<Unit>
       
-      @GET("/list")
-      Future<List<Ledger>> getLedgers();
+      @GET("/api/ledger/list")
+      suspend fun getLedgers(): Response<List<Ledger>>
     }
     ```
     """
@@ -64,11 +64,11 @@ public class LedgerController {
     @PostMapping("/add")
     @Operation(
             summary = "가계부 내역 추가",
-            description = "새로운 지출/수입 내역을 저장합니다. '저축' 카테고리 선택 시 활성화된 목표 금액에 반영됩니다."
+            description = "지출 또는 수입 내역을 저장합니다. '저축' 카테고리를 선택하면 활성 목표의 달성 금액에 합산됩니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "저장 성공"),
-            @ApiResponse(responseCode = "401", description = "인증 실패 (토큰 만료 등)")
+            @ApiResponse(responseCode = "401", description = "인증 실패 (토큰 만료)")
     })
     public ResponseEntity<Void> addLedger(
             @AuthenticationPrincipal Long userId,
@@ -86,7 +86,7 @@ public class LedgerController {
     @GetMapping("/list")
     @Operation(
             summary = "가계부 내역 전체 조회",
-            description = "로그인한 사용자의 모든 지출/수입 내역을 리스트로 반환합니다."
+            description = "사용자의 전체 소비/수입 내역을 가져옵니다. `RecyclerView` 등을 사용하여 리스트를 구성하세요."
     )
     public ResponseEntity<List<Ledger>> getAllLedgers(
             @AuthenticationPrincipal Long userId
@@ -106,11 +106,11 @@ public class LedgerController {
     @PatchMapping("/{id}")
     @Operation(
             summary = "가계부 내역 수정",
-            description = "기존 내역의 금액, 날짜, 카테고리 등을 수정합니다. 금액 수정 시 연동된 목표치도 함께 변경됩니다."
+            description = "기존 내역의 금액, 카테고리 등을 수정합니다. 금액 변경 시 연동된 목표 수치도 자동 재계산됩니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "수정 완료"),
-            @ApiResponse(responseCode = "404", description = "해당 ID의 내역을 찾을 수 없음")
+            @ApiResponse(responseCode = "404", description = "내역 정보 없음")
     })
     public ResponseEntity<Void> updateLedger(
             @PathVariable("id") @Parameter(description = "가계부 내역 ID", example = "101") Long id,
@@ -131,11 +131,11 @@ public class LedgerController {
     @DeleteMapping("/{id}")
     @Operation(
             summary = "가계부 내역 삭제",
-            description = "내역을 삭제합니다. '저축' 내역인 경우 목표 달성액에서 해당 금액만큼 차감됩니다."
+            description = "내역을 삭제합니다. 삭제된 금액만큼 예산 및 목표 달성 수치가 복구됩니다."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "삭제 완료"),
-            @ApiResponse(responseCode = "404", description = "해당 ID의 내역을 찾을 수 없음")
+            @ApiResponse(responseCode = "404", description = "내역 정보 없음")
     })
     public ResponseEntity<Void> deleteLedger(
             @PathVariable("id") @Parameter(description = "가계부 내역 ID", example = "101") Long id,

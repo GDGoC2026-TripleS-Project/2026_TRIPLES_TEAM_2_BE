@@ -41,19 +41,18 @@ import java.util.List;
     
     ---
     
-    ### 🔑 주요 특징
-    - **약관 버전 관리**: 유효한(active) 약관 목록을 실시간으로 가져옵니다.
-    - **동의 현황**: 사용자의 개별 약관 동의 상태를 조회할 수 있습니다.
+    ### 🔑 안드로이드 구현 가이드
+    - **동의 여부 저장**: 사용자의 약관 동의 상태는 서버에서 관리되지만, 앱 최초 실행 여부 판단 등을 위해 로컬 DB(`Room`)나 `DataStore`에 간단히 플래그를 저장해두면 초기 UI 분기에 유용합니다.
+    - **약관 상세 내역**: `TermInfoResponse`에서 제공하는 URL 또는 텍스트 내용을 `WebView`나 `TextView`를 통해 사용자에게 보여주세요.
     
-    ### 🧩 Flutter / Retrofit 예시
-    ```dart
-    @RestApi(baseUrl: "https://api.com/terms")
-    abstract class TermApi {
-      @GET("/active")
-      Future<List<TermInfoResponse>> getActiveTerms();
+    ### 🧩 Kotlin / Retrofit 예시
+    ```kotlin
+    interface TermApi {
+      @GET("/terms/active")
+      suspend fun getActiveTerms(): Response<List<TermInfoResponse>>
       
-      @POST("/agree")
-      Future<void> agreeTerms(@Body AgreedTermRequest request);
+      @POST("/terms/agree")
+      suspend fun agreeTerms(@Body request: AgreedTermRequest): Response<Unit>
     }
     ```
     """
@@ -69,7 +68,7 @@ public class TermController {
     @GetMapping("/active")
     @Operation(
             summary = "유효 약관 목록 조회",
-            description = "현재 서비스에서 시행 중인 최신 약관 목록을 조회합니다. 회원가입 화면의 약관 리스트 생성 시 사용하세요."
+            description = "현재 서비스에서 시행 중인 최신 약관 목록을 조회합니다. 회원가입 화면의 체크박스 리스트 생성 시 사용하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "약관 목록 조회 성공")
@@ -87,11 +86,11 @@ public class TermController {
     @GetMapping("/me")
     @Operation(
             summary = "내 약관 동의 현황 조회",
-            description = "로그인한 사용자가 어떤 약관에 언제 동의했는지 확인합니다. 마이페이지 약관 설정 화면에서 사용하세요."
+            description = "로그인한 사용자가 동의한 약관 목록을 가져옵니다. 설정 화면의 약관 정보 확인란에서 사용하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
-            @ApiResponse(responseCode = "401", description = "인증 실패 (토큰 만료)")
+            @ApiResponse(responseCode = "401", description = "인증 실패 (AccessToken 만료)")
     })
     public ResponseEntity<List<UserTermStatusResponse>> getUserTermStatus(
             @AuthenticationPrincipal Long userId
@@ -109,7 +108,7 @@ public class TermController {
     @PostMapping("/agree")
     @Operation(
             summary = "약관 동의 처리",
-            description = "사용자가 약관 동의 체크박스를 선택하고 완료했을 때 호출합니다."
+            description = "회원가입 절차 중 약관 동의를 완료했을 때 호출합니다. 선택 약관 동의 여부도 포함하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "동의 처리 완료"),

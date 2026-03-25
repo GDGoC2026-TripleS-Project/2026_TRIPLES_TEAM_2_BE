@@ -27,16 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
     
     ---
     
-    ### 🔑 주요 특징
-    - **시각화 데이터**: 원형 그래프(비중) 및 선 그래프(주간 추이)를 위한 데이터를 제공합니다.
-    - **또래 비교**: 동일 연령대 평균 대비 나의 소비 수준을 분석합니다.
+    ### 🔑 안드로이드 구현 가이드
+    - **시각화**: 반환된 비중(percentage) 데이터를 사용하여 `MPAndroidChart` 등의 라이브러리로 원형/선 그래프를 구현하세요.
+    - **성능 최적화**: 분석 데이터는 양이 많을 수 있으므로, 결과 수신 전까지 `Shimmer` 효과 등을 사용하여 사용자 경험을 개선하세요.
     
-    ### 🧩 Flutter / Retrofit 예시
-    ```dart
-    @RestApi(baseUrl: "https://api.com/api/analysis")
-    abstract class AnalysisApi {
-      @GET("/pattern/{userId}")
-      Future<PersonalAnalysisResponse> getPersonalAnalysis(@Path("userId") int userId);
+    ### 🧩 Kotlin / Retrofit 예시
+    ```kotlin
+    interface AnalysisApi {
+      @GET("/api/analysis/pattern/{userId}")
+      suspend fun getPersonalAnalysis(@Path("userId") userId: Long): Response<PersonalAnalysisResponse>
     }
     ```
     """
@@ -53,11 +52,11 @@ public class AnalysisController {
     @GetMapping("/pattern/{userId}")
     @Operation(
             summary = "개인 소비 패턴 분석 조회",
-            description = "사용자의 이번 달 지출 데이터를 분석하여 통계 수치를 반환합니다. 분석/통계 탭 진입 시 호출하세요."
+            description = "이번 달 지출 데이터를 분석하여 통계 수치를 제공합니다. 통계 탭 진입 시 API를 호출하여 그래프를 갱신하세요."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "분석 조회 성공"),
-            @ApiResponse(responseCode = "401", description = "인증 실패 (토큰 만료)"),
+            @ApiResponse(responseCode = "401", description = "인증 실패"),
             @ApiResponse(responseCode = "404", description = "유저 정보 없음")
     })
     public PersonalAnalysisResponse getPersonalAnalysis(@PathVariable Long userId) {
